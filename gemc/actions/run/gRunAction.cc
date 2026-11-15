@@ -89,6 +89,17 @@ void GRunAction::BeginOfRunAction(const G4Run *aRun) {
 	}
 
 
+	// Validate every requested backend before opening output or processing events.
+	if (IsMaster() && need_a_run_streamer) {
+		auto streamers = gstreamer::gstreamersMapPtr(goptions);
+		for (const auto& [name, streamer] : *streamers) {
+			if (!streamer->supportsRunData()) {
+				log->error(gstreamer::ERR_PUBLISH_ERROR,
+				           "Output %1 does not support run-integrated data; use CSV, ASCII, or ROOT.", name);
+			}
+		}
+	}
+
 	// Worker threads own event-mode publication, so they lazily build and open
 	// thread-local streamers only when at least one event-mode digitizer exists.
 	if (!IsMaster() && need_a_thread_streamer) {

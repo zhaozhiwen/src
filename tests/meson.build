@@ -221,3 +221,20 @@ material_optics = executable('test_material_optics', 'material_optics.cc',
     dependencies: gui_probe_dependencies,
     link_with: all_libs)
 test('material_optics', material_optics, suite: 'gsystem')
+
+json_frame_fixture = executable('test_json_frame_fixture',
+    files('json_frame_fixture.cc', '../gemc_options.cc') + qrc_gemc_sources,
+    objects: plugin_target_maps['gstreamer_json_plugin'].extract_all_objects(),
+    include_directories: gemc_includes,
+    dependencies: gui_probe_dependencies,
+    link_with: all_libs,
+    export_dynamic: true)
+capability_args = [files('streamer_capabilities.py'), gemc, get_option('prefix'),
+                   '--frame-driver=' + json_frame_fixture.full_path()]
+if root_dep.found()
+    capability_args += ['--root']
+endif
+test('streamer_capabilities', python_exe,
+     args: capability_args + ['--plugin-path=' + build_root],
+     depends: plugin_target_maps.values() + [json_frame_fixture],
+     env: project_test_env, suite: 'gstreamer', timeout: 180)

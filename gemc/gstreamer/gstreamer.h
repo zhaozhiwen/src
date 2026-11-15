@@ -181,6 +181,12 @@ public:
 	 */
 	static const std::vector<std::string>& supported_formats();
 
+	/// Return whether this backend implements run-integrated serialization.
+	[[nodiscard]] bool supportsRunData() const {
+		const auto& format = gstreamer_definitions.format;
+		return format == "ascii" || format == "csv" || format == "root";
+	}
+
 	/**
 	 * \brief Validate whether a format token is supported.
 	 *
