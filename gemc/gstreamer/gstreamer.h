@@ -620,10 +620,12 @@ namespace gstreamer {
 	 *
 	 * \param gopts Parsed options container supplying streamer definitions.
 	 * \param thread_id Worker thread id used to specialize output names. The default leaves names unchanged.
+	 * \param suffix Shared run tag appended after the worker suffix.
 	 * \return Shared pointer to a constant map from plugin object name to streamer instance.
 	 */
 	inline std::shared_ptr<const gstreamersMap> gstreamersMapPtr(const std::shared_ptr<GOptions>& gopts,
-																 int                              thread_id = -1) {
+																 int                              thread_id = -1,
+                                                              const std::string& suffix = {}) {
 		auto log = std::make_shared<GLogger>(gopts, "gstreamersMap worker for thread id" + std::to_string(thread_id),
 											 GSTREAMER_LOGGER);
 
@@ -634,6 +636,7 @@ namespace gstreamer {
 		for (const auto& gstreamer_def : gstreamer::getGStreamerDefinition(gopts)) {
 			if (gstreamer_def.format == "sro") { continue; } // Shared GSROFactory owns crate output.
 			auto        gstreamer_def_thread = GStreamerDefinition(gstreamer_def, thread_id);
+			gstreamer_def_thread.rootname += suffix;
 			std::string gstreamer_plugin     = gstreamer_def_thread.gstreamerPluginName();
 			// Key the map by the format-derived plugin name combined with the per-output
 			// rootname so that neither multiple same-format outputs (e.g. two csv files)

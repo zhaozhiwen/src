@@ -221,3 +221,12 @@ material_optics = executable('test_material_optics', 'material_optics.cc',
     dependencies: gui_probe_dependencies,
     link_with: all_libs)
 test('material_optics', material_optics, suite: 'gsystem')
+
+multi_run_args = [files('multi_run_output.py'), gemc]
+if root_dep.found()
+    multi_run_args += ['--root']
+endif
+test('multi_run_output', python_exe,
+     args: multi_run_args + ['--plugin-path=' + build_root],
+     depends: plugin_target_maps.values(),
+     env: project_test_env, suite: 'gstreamer', timeout: 180)

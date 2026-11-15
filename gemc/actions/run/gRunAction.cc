@@ -6,6 +6,12 @@
 
 // geant4
 #include "G4Threading.hh"
+#include <atomic>
+
+namespace {
+std::atomic<unsigned long long> output_run_sequence{0};
+std::atomic<int> output_run_id{0};
+}
 
 std::mutex GRunAction::completed_run_data_mutex;
 GRunAction::CompletedRunData GRunAction::completed_worker_run_data;
@@ -38,6 +44,14 @@ G4Run *GRunAction::GenerateRun() {
 void GRunAction::BeginOfRunAction(const G4Run *aRun) {
 	const auto thread_id = G4Threading::G4GetThreadId();
 	const auto run = aRun->GetRunID();
+	// The master begins before workers; its ID can differ from worker-local conditions IDs.
+	if (IsMaster()) {
+		output_run_id.store(run);
+		output_run_sequence.fetch_add(1);
+	}
+	const auto sequence = output_run_sequence.load();
+	const std::string output_suffix = sequence > 1
+		? "_r" + std::to_string(output_run_id.load()) + "_s" + std::to_string(sequence) : "";
 
 	auto run_header = std::make_unique<GRunHeader>(goptions, run, thread_id);
 	run_data = std::make_unique<GRunDataCollection>(goptions, std::move(run_header));
@@ -92,9 +106,9 @@ void GRunAction::BeginOfRunAction(const G4Run *aRun) {
 	// Worker threads own event-mode publication, so they lazily build and open
 	// thread-local streamers only when at least one event-mode digitizer exists.
 	if (!IsMaster() && need_a_thread_streamer) {
-		if (gstreamer_threads_map == nullptr) {
+		{
 			log->info(1, "Defining thread gstreamers for run %1 in thread %2", run, thread_id);
-			gstreamer_threads_map = gstreamer::gstreamersMapPtr(goptions, thread_id);
+			gstreamer_threads_map = gstreamer::gstreamersMapPtr(goptions, thread_id, output_suffix);
 		}
 
 		if (gstreamer_threads_map == nullptr) {
@@ -125,9 +139,9 @@ void GRunAction::BeginOfRunAction(const G4Run *aRun) {
 	// The master thread owns run-mode publication, so it opens the run streamers
 	// only when at least one digitizer accumulates payload at run scope.
 	else if (IsMaster() && need_a_run_streamer) {
-		if (gstreamer_run_map == nullptr) {
+		{
 			log->info(1, "Defining run gstreamers for run %1", run);
-			gstreamer_run_map = gstreamer::gstreamersMapPtr(goptions);
+			gstreamer_run_map = gstreamer::gstreamersMapPtr(goptions, -1, output_suffix);
 		}
 
 		if (gstreamer_run_map == nullptr) {
